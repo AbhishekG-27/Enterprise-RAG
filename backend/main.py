@@ -1,6 +1,5 @@
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.llms import Ollama
-from langchain_classic.chains import RetrievalQA
+from semantic_chunker import semantic_chunker
 from langchain_classic.prompts import PromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from pydantic import BaseModel
@@ -195,13 +194,15 @@ async def upload_pdf(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        loader = PyPDFLoader(file_path, extract_images=True)
+        # loader = PyPDFLoader(file_path, extract_images=True)
 
-        docs = loader.load()
-        print(f'Number of pages in file: {len(docs)}')
+        # docs = loader.load()
+        # print(f'Number of pages in file: {len(docs)}')
 
         # texts = text_splitter.split_documents(docs)
-        texts_chunk = [text.page_content for text in docs]
+        result = semantic_chunker(file_path=file_path)
+        # print(result)
+        texts_chunk = [text.get("content") for text in result]
 
         dense_vectors = embeddings.embed_documents(texts=texts_chunk)
 
@@ -223,7 +224,7 @@ async def upload_pdf(file: UploadFile = File(...)):
                     },
                     payload={
                         "text": text,
-                        "metadata": docs[idx].metadata,
+                        "metadata": result[idx].get("metadata"),
                         "file_uuid": file_uuid,
                         "file_name": file.filename,
                         "chunck_idx": idx
