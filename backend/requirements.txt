@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-multipart
+langchain
+langchain-community
+pydantic
+Pillow
+qdrant-client
+fastembed
+sentence-transformers
