@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageSquare, Plus, Trash2, Loader2 } from 'lucide-react';
+import { MessageSquare, Trash2, Loader2 } from 'lucide-react';
 import { Conversation } from '@/lib/api';
 
 interface ConversationListProps {
@@ -8,7 +8,6 @@ interface ConversationListProps {
   activeConversationId: string | null;
   loading: boolean;
   onSelectConversation: (conversationId: string) => void;
-  onNewConversation: () => void;
   onDeleteConversation: (conversationId: string) => void;
 }
 
@@ -17,7 +16,6 @@ export default function ConversationList({
   activeConversationId,
   loading,
   onSelectConversation,
-  onNewConversation,
   onDeleteConversation
 }: ConversationListProps) {
   const formatDate = (dateStr: string) => {
@@ -37,17 +35,6 @@ export default function ConversationList({
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* New Chat Button */}
-      <div className="p-3 border-b border-gray-200">
-        <button
-          onClick={onNewConversation}
-          className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Chat</span>
-        </button>
-      </div>
-
       {/* Conversation List */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {loading && (
@@ -60,7 +47,7 @@ export default function ConversationList({
           <div className="p-4 text-center text-sm text-gray-500">
             <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-300" />
             <p>No conversations yet.</p>
-            <p className="mt-1">Start by asking a question.</p>
+            <p className="mt-1">Upload a PDF to start chatting.</p>
           </div>
         )}
 

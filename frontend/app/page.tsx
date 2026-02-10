@@ -13,6 +13,7 @@ import {
   getConversation,
   deleteConversation,
   queryFile,
+  createConversation,
 } from '@/lib/api';
 
 export default function Home() {
@@ -59,13 +60,6 @@ export default function Home() {
       setChatError('Failed to load conversation');
       setMessages([]);
     }
-  };
-
-  // Start a new conversation
-  const handleNewConversation = () => {
-    setActiveConversationId(null);
-    setMessages([]);
-    setChatError(null);
   };
 
   // Delete a conversation
@@ -140,8 +134,30 @@ export default function Home() {
   };
 
   // Upload success handler
-  const handleUploadSuccess = () => {
+  const handleUploadSuccess = async (fileUuid: string, originalFilename: string) => {
+    // Refresh the file list
     setRefreshTrigger(prev => prev + 1);
+
+    // Select the newly uploaded file
+    setSelectedFileId(fileUuid);
+    setSelectedFileName(originalFilename);
+
+    try {
+      // Create a new conversation tied to this file
+      const response = await createConversation(fileUuid);
+
+      // Set the new conversation as active and clear messages
+      setActiveConversationId(response.conversation_id);
+      setMessages([]);
+      setChatError(null);
+
+      // Refresh conversation list
+      fetchConversations();
+    } catch (err: any) {
+      console.error('Failed to create conversation:', err);
+      setChatError('Failed to create conversation. You can still chat, and a conversation will be created automatically.');
+      // Fall back gracefully - the backend will auto-create a conversation on first queryFile call
+    }
   };
 
   // Fetch conversations on mount
@@ -185,7 +201,6 @@ export default function Home() {
               activeConversationId={activeConversationId}
               loading={conversationsLoading}
               onSelectConversation={handleSelectConversation}
-              onNewConversation={handleNewConversation}
               onDeleteConversation={handleDeleteConversation}
             />
           </div>

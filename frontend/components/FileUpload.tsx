@@ -5,7 +5,7 @@ import { Upload, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { uploadPDF } from '@/lib/api';
 
 interface FileUploadProps {
-  onUploadSuccess: () => void;
+  onUploadSuccess: (fileUuid: string, originalFilename: string) => void;
 }
 
 export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
@@ -41,7 +41,7 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
         message: `Successfully uploaded! ${response.chunks_created} chunks created.`,
       });
       setFile(null);
-      onUploadSuccess();
+      onUploadSuccess(response.uuid, response.original_filename);
       
       // Reset file input
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
