@@ -33,9 +33,9 @@ export default function FileList({ selectedFileId, onSelectFile, refreshTrigger 
   }, [refreshTrigger]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-gray-800">Your Documents</h2>
+    <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-gray-800">Your Documents</h2>
         <button
           onClick={fetchFiles}
           disabled={loading}
@@ -66,10 +66,10 @@ export default function FileList({ selectedFileId, onSelectFile, refreshTrigger 
       )}
 
       {!loading && !error && files.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-48 overflow-y-auto">
           <button
             onClick={() => onSelectFile(null, null)}
-            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+            className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
               selectedFileId === null
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -88,7 +88,7 @@ export default function FileList({ selectedFileId, onSelectFile, refreshTrigger 
             <button
               key={file.file_id}
               onClick={() => onSelectFile(file.file_id, file.filename)}
-              className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+              className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
                 selectedFileId === file.file_id
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'

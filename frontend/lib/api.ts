@@ -29,6 +29,39 @@ export interface QueryResponse {
   answer: string;
   sources: QuerySource[];
   num_sources: number;
+  conversation_id: string;
+}
+
+export interface Message {
+  role: 'human' | 'assistant';
+  content: string;
+  sources?: QuerySource[] | null;
+  created_at?: string | null;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  file_uuid: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationDetail {
+  conversation_id: string;
+  messages: Message[];
+}
+
+export interface CreateConversationResponse {
+  conversation_id: string;
+}
+
+export interface ListConversationsResponse {
+  conversations: Conversation[];
+}
+
+export interface DeleteConversationResponse {
+  message: string;
 }
 
 export interface UploadResponse {
@@ -64,14 +97,51 @@ export const listFiles = async (): Promise<{ total_files: number; files: FileInf
 export const queryFile = async (
   query: string,
   k: number = 3,
-  fileUuid?: string
+  fileUuid?: string,
+  conversationId?: string
 ): Promise<QueryResponse> => {
   const response = await api.post('/query_file', {
     query,
     k,
     file_uuid: fileUuid || null,
+    conversation_id: conversationId || null,
   });
 
+  return response.data;
+};
+
+// Create a new conversation
+export const createConversation = async (
+  fileUuid?: string
+): Promise<CreateConversationResponse> => {
+  const response = await api.post('/conversations', {
+    file_uuid: fileUuid || null,
+  });
+  return response.data;
+};
+
+// List all conversations, optionally filtered by file
+export const listConversations = async (
+  fileUuid?: string
+): Promise<ListConversationsResponse> => {
+  const params = fileUuid ? { file_uuid: fileUuid } : {};
+  const response = await api.get('/conversations', { params });
+  return response.data;
+};
+
+// Get a specific conversation with all messages
+export const getConversation = async (
+  conversationId: string
+): Promise<ConversationDetail> => {
+  const response = await api.get(`/conversations/${conversationId}`);
+  return response.data;
+};
+
+// Delete a conversation
+export const deleteConversation = async (
+  conversationId: string
+): Promise<DeleteConversationResponse> => {
+  const response = await api.delete(`/conversations/${conversationId}`);
   return response.data;
 };
 

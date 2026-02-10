@@ -57,19 +57,19 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Upload PDF</h2>
+    <div className="bg-white rounded-lg shadow-sm p-4">
+      <h2 className="text-lg font-bold mb-3 text-gray-800">Upload PDF</h2>
       
       <div className="space-y-4">
         <div className="flex items-center justify-center w-full">
           <label
             htmlFor="file-input"
-            className="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
+            className="flex flex-col items-center justify-center w-full h-28 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
           >
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <Upload className="w-10 h-10 mb-3 text-gray-400" />
-              <p className="mb-2 text-sm text-gray-500">
-                <span className="font-semibold">Click to upload</span> or drag and drop
+            <div className="flex flex-col items-center justify-center pt-3 pb-4">
+              <Upload className="w-8 h-8 mb-2 text-gray-400" />
+              <p className="mb-1 text-xs text-gray-500">
+                <span className="font-semibold">Click to upload</span>
               </p>
               <p className="text-xs text-gray-500">PDF files only</p>
             </div>

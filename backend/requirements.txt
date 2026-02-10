@@ -8,3 +8,4 @@ Pillow
 qdrant-client
 fastembed
 sentence-transformers
+aiosqlite
