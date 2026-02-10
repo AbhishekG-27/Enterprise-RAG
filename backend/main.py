@@ -19,15 +19,19 @@ from database import (
     init_db, create_conversation, add_message,
     get_conversation_messages, list_conversations, delete_conversation, _conversation_exists
 )
+from contextlib import asynccontextmanager
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # Initialize a FastAPI app
-app = FastAPI()
 
-@app.lifespan("startup")
-async def startup():
+@asynccontextmanager
+async def startup(app: FastAPI):
     await init_db()
+    print("✅ Database ready!")
+    yield  # App runs here
+
+app = FastAPI(lifespan=startup)
 
 app.add_middleware(
     CORSMiddleware,

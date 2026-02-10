@@ -1,3 +1,6 @@
 venv/
 uploaded_pdfs/
 .env
+.env.local
+__pycache__/
+chat_history.db

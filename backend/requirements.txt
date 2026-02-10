@@ -9,3 +9,5 @@ qdrant-client
 fastembed
 sentence-transformers
 aiosqlite
+langchain-experimental
+pypdf
