@@ -188,7 +188,7 @@ def generate_answer(
             template=prompt_template,
             input_variables=["context", "question"]
         )
-    formatted_prompt = prompt.format(context=context, question=query)
+        formatted_prompt = prompt.format(context=context, question=query)
 
     # Generate answer
     answer = llm.invoke(formatted_prompt)

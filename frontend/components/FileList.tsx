@@ -33,9 +33,8 @@ export default function FileList({ selectedFileId, onSelectFile, refreshTrigger 
   }, [refreshTrigger]);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold text-gray-800">Your Documents</h2>
+    <div>
+      <div className="flex items-center justify-end mb-3">
         <button
           onClick={fetchFiles}
           disabled={loading}
@@ -66,7 +65,7 @@ export default function FileList({ selectedFileId, onSelectFile, refreshTrigger 
       )}
 
       {!loading && !error && files.length > 0 && (
-        <div className="space-y-2 max-h-48 overflow-y-auto">
+        <div className="space-y-2">
           <button
             onClick={() => onSelectFile(null, null)}
             className={`w-full text-left p-3 rounded-lg border-2 transition-all ${

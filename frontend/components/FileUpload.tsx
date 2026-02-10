@@ -57,10 +57,7 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4">
-      <h2 className="text-lg font-bold mb-3 text-gray-800">Upload PDF</h2>
-      
-      <div className="space-y-4">
+    <div className="space-y-4">
         <div className="flex items-center justify-center w-full">
           <label
             htmlFor="file-input"
@@ -127,7 +124,6 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
             <span className="text-sm">{uploadStatus.message}</span>
           </div>
         )}
-      </div>
     </div>
   );
 }
