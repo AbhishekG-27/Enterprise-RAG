@@ -22,12 +22,16 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        document.body.style.overflow = 'hidden';
+      });
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      requestAnimationFrame(() => {
+        document.body.style.overflow = 'unset';
+      });
     };
   }, [isOpen, onClose]);
 

@@ -9,11 +9,13 @@ import ChatPanel from '@/components/ChatPanel';
 import {
   Conversation,
   Message,
+  FileInfo,
   listConversations,
   getConversation,
   deleteConversation,
   queryFile,
   createConversation,
+  listFiles,
 } from '@/lib/api';
 
 export default function Home() {
@@ -21,6 +23,7 @@ export default function Home() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [fileMap, setFileMap] = useState<Map<string, string>>(new Map());
 
   // New conversation state
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -47,6 +50,20 @@ export default function Home() {
     }
   };
 
+  // Fetch file list and build UUID to filename map
+  const fetchFileMap = async () => {
+    try {
+      const response = await listFiles();
+      const map = new Map<string, string>();
+      for (const file of response.files) {
+        map.set(file.file_id, file.filename);
+      }
+      setFileMap(map);
+    } catch (err) {
+      console.error('Failed to load file list for name mapping', err);
+    }
+  };
+
   // Load a specific conversation's messages
   const handleSelectConversation = async (conversationId: string) => {
     setActiveConversationId(conversationId);
@@ -59,6 +76,10 @@ export default function Home() {
       const conv = conversations.find(c => c.id === conversationId);
       if (conv?.file_uuid) {
         setSelectedFileId(conv.file_uuid);
+        setSelectedFileName(fileMap.get(conv.file_uuid) || null);
+      } else {
+        setSelectedFileId(null);
+        setSelectedFileName(null);
       }
     } catch (err: any) {
       setChatError('Failed to load conversation');
@@ -107,9 +128,9 @@ export default function Home() {
       // If this was a new conversation, the backend auto-created one
       if (!activeConversationId) {
         setActiveConversationId(response.conversation_id);
-        // Refresh conversation list to show the new conversation
-        fetchConversations();
       }
+      // Refresh conversation list to update timestamps and ordering
+      fetchConversations();
 
       // Add the assistant message to the UI
       const assistantMessage: Message = {
@@ -118,7 +139,6 @@ export default function Home() {
         sources: response.sources,
       };
       setMessages(prev => [...prev, assistantMessage]);
-
     } catch (err: any) {
       setChatError(err.response?.data?.detail || 'Failed to process query');
     } finally {
@@ -146,6 +166,9 @@ export default function Home() {
     setSelectedFileId(fileUuid);
     setSelectedFileName(originalFilename);
 
+    // Eagerly update the file map with the new file
+    setFileMap(prev => new Map(prev).set(fileUuid, originalFilename));
+
     try {
       // Create a new conversation tied to this file
       const response = await createConversation(fileUuid);
@@ -164,10 +187,11 @@ export default function Home() {
     }
   };
 
-  // Fetch conversations on mount
+  // Fetch conversations and file map on mount and when refreshTrigger changes
   useEffect(() => {
     fetchConversations();
-  }, []);
+    fetchFileMap();
+  }, [refreshTrigger]);
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">

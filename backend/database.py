@@ -6,6 +6,10 @@ from datetime import datetime
 
 DATABASE_PATH = "chat_history.db"
 
+def utc_now() -> str:
+    """Generate ISO 8601 UTC timestamp with 'Z' suffix."""
+    return datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+
 async def init_db():
     """
     Create tables if they don't exist. Called once at FastAPI startup.
@@ -19,8 +23,8 @@ async def init_db():
                 id TEXT PRIMARY KEY,
                 title TEXT DEFAULT 'New Chat',
                 file_uuid TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP,
+                updated_at TIMESTAMP
             )
         """)
         await db.execute("""
@@ -30,7 +34,7 @@ async def init_db():
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
                 sources TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP,
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             )
         """)
@@ -50,10 +54,11 @@ async def create_conversation(file_uuid: Optional[str] = None) -> str:
     it with every query.
     """
     conversation_id = str(uuid.uuid4())
+    now = utc_now()
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
-            "INSERT INTO conversations (id, file_uuid) VALUES (?, ?)",
-            (conversation_id, file_uuid)
+            "INSERT INTO conversations (id, file_uuid, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (conversation_id, file_uuid, now, now)
         )
         await db.commit()
     return conversation_id
@@ -78,16 +83,17 @@ async def add_message(
     """
     message_id = str(uuid.uuid4())
     sources_json = json.dumps(sources) if sources else None
+    now = utc_now()
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
-            "INSERT INTO messages (id, conversation_id, role, content, sources) VALUES (?, ?, ?, ?, ?)",
-            (message_id, conversation_id, role, content, sources_json)
+            "INSERT INTO messages (id, conversation_id, role, content, sources, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (message_id, conversation_id, role, content, sources_json, now)
         )
         # Update conversation's updated_at and title (from first human message)
         await db.execute(
-            "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (conversation_id,)
+            "UPDATE conversations SET updated_at = ? WHERE id = ?",
+            (now, conversation_id)
         )
         # Auto-set title from first human message
         if role == "human":
