@@ -8,9 +8,10 @@ import ChatMessage from './ChatMessage';
 interface MessageListProps {
   messages: Message[];
   loading: boolean;
+  isStreaming?: boolean;
 }
 
-export default function MessageList({ messages, loading }: MessageListProps) {
+export default function MessageList({ messages, loading, isStreaming = false }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,10 +29,19 @@ export default function MessageList({ messages, loading }: MessageListProps) {
     );
   }
 
+  const lastAssistantIndex = messages.reduce(
+    (last, msg, idx) => (msg.role === 'assistant' ? idx : last),
+    -1
+  );
+
   return (
     <div className="flex-1 overflow-y-auto p-4">
       {messages.map((message, index) => (
-        <ChatMessage key={index} message={message} />
+        <ChatMessage
+          key={index}
+          message={message}
+          isStreaming={isStreaming && index === lastAssistantIndex}
+        />
       ))}
 
       {loading && (

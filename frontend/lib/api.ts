@@ -93,6 +93,80 @@ export const listFiles = async (): Promise<{ total_files: number; files: FileInf
   return response.data;
 };
 
+// Stream callbacks for queryFileStream
+export interface StreamCallbacks {
+  onToken: (token: string) => void;
+  onSources: (sources: QuerySource[], numSources: number) => void;
+  onDone: (conversationId: string, fullAnswer: string) => void;
+  onError: (error: string) => void;
+}
+
+// Stream a query response via SSE
+export const queryFileStream = async (
+  query: string,
+  k: number = 3,
+  fileUuid?: string,
+  conversationId?: string,
+  callbacks: StreamCallbacks = { onToken: () => {}, onSources: () => {}, onDone: () => {}, onError: () => {} }
+): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/query_file_stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query,
+      k,
+      file_uuid: fileUuid || null,
+      conversation_id: conversationId || null,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+    callbacks.onError(error.detail || 'Request failed');
+    return;
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE events are separated by \n\n
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+
+    for (const part of parts) {
+      const lines = part.split('\n');
+      let eventType = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim();
+        } else if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (eventType === 'token') {
+              callbacks.onToken(data.token);
+            } else if (eventType === 'sources') {
+              callbacks.onSources(data.sources, data.num_sources);
+            } else if (eventType === 'done') {
+              callbacks.onDone(data.conversation_id, data.full_answer);
+            } else if (eventType === 'error') {
+              callbacks.onError(data.detail);
+            }
+          } catch {
+            // Ignore malformed JSON in SSE data
+          }
+          eventType = '';
+        }
+      }
+    }
+  }
+};
+
 // Query a file
 export const queryFile = async (
   query: string,

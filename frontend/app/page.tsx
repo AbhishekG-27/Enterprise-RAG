@@ -9,11 +9,10 @@ import ChatPanel from '@/components/ChatPanel';
 import {
   Conversation,
   Message,
-  FileInfo,
   listConversations,
   getConversation,
   deleteConversation,
-  queryFile,
+  queryFileStream,
   createConversation,
   listFiles,
 } from '@/lib/api';
@@ -31,6 +30,7 @@ export default function Home() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isQuerying, setIsQuerying] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
   // Modal state
@@ -110,39 +110,65 @@ export default function Home() {
     setChatError(null);
     setIsQuerying(true);
 
-    // Optimistically add the human message to the UI immediately
-    const humanMessage: Message = {
-      role: 'human',
-      content: messageText,
-    };
-    setMessages(prev => [...prev, humanMessage]);
+    // Optimistically add the human message + empty assistant placeholder
+    const humanMessage: Message = { role: 'human', content: messageText };
+    const placeholder: Message = { role: 'assistant', content: '' };
+    setMessages(prev => [...prev, humanMessage, placeholder]);
+
+    let hasTokens = false;
 
     try {
-      const response = await queryFile(
+      await queryFileStream(
         messageText,
         3,
         selectedFileId || undefined,
-        activeConversationId || undefined
+        activeConversationId || undefined,
+        {
+          onToken: (token) => {
+            hasTokens = true;
+            setIsStreaming(true);
+            setMessages(prev => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, content: last.content + token };
+              }
+              return updated;
+            });
+          },
+          onSources: (sources) => {
+            setMessages(prev => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, sources };
+              }
+              return updated;
+            });
+          },
+          onDone: (conversationId) => {
+            if (!activeConversationId) {
+              setActiveConversationId(conversationId);
+            }
+            fetchConversations();
+          },
+          onError: (error) => {
+            setChatError(error);
+            if (!hasTokens) {
+              // Remove the empty placeholder if nothing was streamed
+              setMessages(prev => prev.slice(0, -1));
+            }
+          },
+        }
       );
-
-      // If this was a new conversation, the backend auto-created one
-      if (!activeConversationId) {
-        setActiveConversationId(response.conversation_id);
-      }
-      // Refresh conversation list to update timestamps and ordering
-      fetchConversations();
-
-      // Add the assistant message to the UI
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response.answer,
-        sources: response.sources,
-      };
-      setMessages(prev => [...prev, assistantMessage]);
     } catch (err: any) {
-      setChatError(err.response?.data?.detail || 'Failed to process query');
+      setChatError(err.message || 'Failed to process query');
+      if (!hasTokens) {
+        setMessages(prev => prev.slice(0, -1));
+      }
     } finally {
       setIsQuerying(false);
+      setIsStreaming(false);
     }
   };
 
@@ -277,6 +303,7 @@ export default function Home() {
             messages={messages}
             onSendMessage={handleSendMessage}
             isQuerying={isQuerying}
+            isStreaming={isStreaming}
             error={chatError}
           />
         </main>

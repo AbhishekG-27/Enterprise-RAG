@@ -6,9 +6,10 @@ import { Message } from '@/lib/api';
 
 interface ChatMessageProps {
   message: Message;
+  isStreaming?: boolean;
 }
 
-export default function ChatMessage({ message }: ChatMessageProps) {
+export default function ChatMessage({ message, isStreaming = false }: ChatMessageProps) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const isHuman = message.role === 'human';
 
@@ -35,7 +36,12 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         </div>
         <div className="flex-1">
           <div className="bg-gray-100 rounded-lg px-4 py-2">
-            <p className="whitespace-pre-wrap break-words text-gray-800">{message.content}</p>
+            <p className="whitespace-pre-wrap break-words text-gray-800">
+              {message.content}
+              {isStreaming && (
+                <span className="inline-block w-0.5 h-4 ml-0.5 bg-gray-600 animate-pulse align-middle" />
+              )}
+            </p>
           </div>
 
           {message.sources && message.sources.length > 0 && (

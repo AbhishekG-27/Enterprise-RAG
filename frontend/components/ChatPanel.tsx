@@ -12,6 +12,7 @@ interface ChatPanelProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
   isQuerying: boolean;
+  isStreaming: boolean;
   error: string | null;
 }
 
@@ -22,6 +23,7 @@ export default function ChatPanel({
   messages,
   onSendMessage,
   isQuerying,
+  isStreaming,
   error
 }: ChatPanelProps) {
   return (
@@ -45,7 +47,7 @@ export default function ChatPanel({
       </div>
 
       {/* Message List */}
-      <MessageList messages={messages} loading={isQuerying} />
+      <MessageList messages={messages} loading={isQuerying && !isStreaming} isStreaming={isStreaming} />
 
       {/* Error Banner */}
       {error && (
@@ -59,7 +61,7 @@ export default function ChatPanel({
       )}
 
       {/* Input */}
-      <ChatInput onSendMessage={onSendMessage} disabled={isQuerying} />
+      <ChatInput onSendMessage={onSendMessage} disabled={isQuerying || isStreaming} />
     </div>
   );
 }

@@ -15,6 +15,8 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct
 from fastembed import SparseTextEmbedding
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import json, asyncio, queue, threading
 from database import (
     init_db, create_conversation, add_message,
     get_conversation_messages, list_conversations, delete_conversation, _conversation_exists
@@ -112,22 +114,7 @@ class ConversationResponse(BaseModel):
     updated_at: str
     messages: Optional[List[MessageResponse]] = None
 
-def generate_answer(
-    query: str,
-    retrieved_docs: List[Dict],
-    chat_history: Optional[List[Dict]] = None
-) -> Dict:
-    """
-    Generate an answer using the LLM based on retrieved documents and conversation history.
-
-    Args:
-        query: The user's current question
-        retrieved_docs: List of retrieved documents from Qdrant
-        chat_history: List of previous messages [{"role": "human"|"assistant", "content": "..."}]
-
-    Returns:
-        Dict with answer and sources
-    """
+def build_answer_prompt(query, retrieved_docs, chat_history) -> str:
     # Build context from retrieved documents
     context = "\n\n".join(
         [f"[Source {i+1}]:\n{doc['content']}" for i, doc in enumerate(retrieved_docs)]
@@ -189,6 +176,25 @@ def generate_answer(
             input_variables=["context", "question"]
         )
         formatted_prompt = prompt.format(context=context, question=query)
+    return formatted_prompt
+
+def generate_answer(
+    query: str,
+    retrieved_docs: List[Dict],
+    chat_history: Optional[List[Dict]] = None
+) -> Dict:
+    """
+    Generate an answer using the LLM based on retrieved documents and conversation history.
+
+    Args:
+        query: The user's current question
+        retrieved_docs: List of retrieved documents from Qdrant
+        chat_history: List of previous messages [{"role": "human"|"assistant", "content": "..."}]
+
+    Returns:
+        Dict with answer and sources
+    """
+    formatted_prompt = build_answer_prompt(query, retrieved_docs, chat_history)
 
     # Generate answer
     answer = llm.invoke(formatted_prompt)
@@ -383,6 +389,124 @@ async def upload_pdf(file: UploadFile = File(...)):
     finally:
         # Close the file
         await file.close()
+
+@app.post("/query_file_stream")
+async def query_file_stream(query_request: QueryRequest):
+    query_text = query_request.query
+    conversation_id = query_request.conversation_id
+
+    # --- Step A: Session Management ---
+    if not conversation_id:
+        conversation_id = await create_conversation(file_uuid=query_request.file_uuid)
+
+    # --- Step B: Load Chat History ---
+    chat_history = await get_conversation_messages(conversation_id, limit=10)
+
+    # --- Step C: Store the Human Message ---
+    await add_message(conversation_id, "human", query_text)
+
+    # --- Step D: Rewrite Query for Better Retrieval ---
+    search_query = await rewrite_query_if_needed(query_text, chat_history)
+
+    # --- Step E: Hybrid Search ---
+    query_dense = embeddings.embed_query(search_query)
+    raw_sparse_output = next(sparse_embedding_model.query_embed(search_query))
+    query_sparse_formatted = models.SparseVector(
+        indices=raw_sparse_output.indices.tolist(),
+        values=raw_sparse_output.values.tolist()
+    )
+
+    query_filter = None
+    if query_request.file_uuid:
+        query_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="file_uuid",
+                    match=models.MatchValue(value=query_request.file_uuid)
+                )
+            ]
+        )
+
+    search_result = client.query_points(
+        collection_name=collection_name,
+        prefetch=[
+            models.Prefetch(query=query_dense, using="dense", limit=10, filter=query_filter),
+            models.Prefetch(query=query_sparse_formatted, using="sparse", limit=10, filter=query_filter),
+        ],
+        query=models.FusionQuery(fusion=models.Fusion.RRF),
+        limit=query_request.k,
+    )
+
+    formatted_results = []
+    for point in search_result.points:
+        formatted_results.append({
+            "content": point.payload["text"],
+            "metadata": point.payload['metadata'],
+            "similarity_score": float(point.score),
+            "file_uuid": query_request.file_uuid,
+            "file_name": point.payload.get("file_name")
+        })
+
+    sources = [
+        {
+            "content": doc["content"][:300] + "...",
+            "metadata": doc["metadata"],
+            "score": doc["similarity_score"]
+        }
+        for doc in formatted_results
+    ]
+
+    formatted_prompt = build_answer_prompt(query_text, formatted_results, chat_history)
+
+    # --- Step F: Stream the LLM response ---
+    async def event_generator():
+        token_queue = queue.Queue()
+        full_answer_parts = []
+
+        def run_stream():
+            try:
+                for chunk in llm.stream(formatted_prompt):
+                    token_queue.put(chunk)
+                token_queue.put(None)  # sentinel: stream complete
+            except Exception as e:
+                token_queue.put(e)
+
+        thread = threading.Thread(target=run_stream, daemon=True)
+        thread.start()
+
+        loop = asyncio.get_event_loop()
+
+        try:
+            while True:
+                item = await loop.run_in_executor(None, token_queue.get)
+                if item is None:
+                    break
+                if isinstance(item, Exception):
+                    yield f"event: error\ndata: {json.dumps({'detail': str(item)})}\n\n"
+                    return
+                full_answer_parts.append(item)
+                yield f"event: token\ndata: {json.dumps({'token': item})}\n\n"
+
+            full_answer = "".join(full_answer_parts)
+
+            yield f"event: sources\ndata: {json.dumps({'sources': sources, 'num_sources': len(sources)})}\n\n"
+
+            await add_message(
+                conversation_id, "assistant",
+                full_answer,
+                sources=sources
+            )
+
+            yield f"event: done\ndata: {json.dumps({'conversation_id': conversation_id, 'full_answer': full_answer})}\n\n"
+
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"}
+    )
     
 @app.post("/query_file")
 async def query_file(query_request: QueryRequest):
